@@ -1,28 +1,53 @@
 import os
 import shutil
+
 from git import Repo
 
 
-class RepositoryLoader:
+class RepoLoader:
 
-    def __init__(self, repo_url: str, destination: str = "data/repository"):
-        self.repo_url = repo_url
-        self.destination = destination
+    def __init__(self, base_path="data/repos"):
 
-    def clone_repository(self):
+        self.base_path = base_path
 
-        # Remove old repository if it exists
-        if os.path.exists(self.destination):
-            shutil.rmtree(self.destination)
-
-        print("Cloning repository...")
-        print(f"URL: {self.repo_url}")
-
-        Repo.clone_from(
-            self.repo_url,
-            self.destination
+        os.makedirs(
+            self.base_path,
+            exist_ok=True
         )
 
-        print("Repository cloned successfully!")
+    def clone_repository(self, repo_url):
 
-        return self.destination
+        repo_name = repo_url.rstrip("/").split("/")[-1]
+
+        if repo_name.endswith(".git"):
+            repo_name = repo_name[:-4]
+
+        repo_path = os.path.join(
+            self.base_path,
+            repo_name
+        )
+
+        # Remove existing repository
+        # so we always work with a fresh copy
+        if os.path.exists(repo_path):
+
+            shutil.rmtree(
+                repo_path
+            )
+
+        print(
+            f"\nCloning repository: "
+            f"{repo_url}"
+        )
+
+        Repo.clone_from(
+            repo_url,
+            repo_path
+        )
+
+        print(
+            f"Repository cloned to: "
+            f"{repo_path}"
+        )
+
+        return repo_path
