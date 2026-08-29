@@ -1,8 +1,14 @@
 from backend.ingestion.file_scanner import FileScanner
 from backend.parser.code_parser import PythonCodeParser
+from backend.chunking.code_chunker import CodeChunker
+from backend.embeddings.embedding_model import CodeEmbeddingModel
+from backend.vectorstore.qdrant_store import QdrantVectorStore
 
 
-# Scan the test repository
+# --------------------------------
+# 1. Scan repository
+# --------------------------------
+
 scanner = FileScanner("data/test_project")
 
 files = scanner.get_source_files()
@@ -13,15 +19,30 @@ for file in files:
     print(file)
 
 
-# Parse the Python files
+# --------------------------------
+# 2. Initialize components
+# --------------------------------
+
 parser = PythonCodeParser()
+
+chunker = CodeChunker()
+
+embedding_model = CodeEmbeddingModel()
+
+vector_store = QdrantVectorStore()
+
+
+# --------------------------------
+# 3. Process files
+# --------------------------------
 
 for file in files:
 
     print("\n" + "=" * 60)
-    print("Parsing:", file)
+    print("Processing:", file)
     print("=" * 60)
 
+    # Parse file
     tree, source_code = parser.parse_file(file)
 
     functions = parser.extract_functions(
@@ -29,20 +50,36 @@ for file in files:
         source_code
     )
 
-    print("\nFunctions found:\n")
+    # Create chunks
+    chunks = chunker.create_chunks(
+        file,
+        functions
+    )
 
-    for function in functions:
+    print(
+        f"\nCreated {len(chunks)} chunks."
+    )
 
-        print("-" * 50)
-        print("Name:", function["name"])
-        print("Type:", function["type"])
+    # Generate embeddings
+    embeddings = embedding_model.embed_chunks(
+        chunks
+    )
 
-        print(
-            "Lines:",
-            function["start_line"],
-            "-",
-            function["end_line"]
-        )
+    print(
+        f"Generated {len(embeddings)} embeddings."
+    )
 
-        print("\nCode:")
-        print(function["code"])
+    # Store in Qdrant
+    vector_store.add_chunks(
+        chunks,
+        embeddings
+    )
+
+
+# --------------------------------
+# 4. Close Qdrant
+# --------------------------------
+
+vector_store.close()
+
+print("\nRepoMind ingestion completed!")
