@@ -19,51 +19,118 @@ class CodeChunker:
             file_path
         )
 
-        # --------------------------------
-        # Class metadata chunks
-        # --------------------------------
+        # ============================================================
+        # CLASS CHUNKS
+        # ============================================================
 
         for class_item in classes:
 
+            class_code = class_item.get(
+                "code",
+                ""
+            )
+
+            class_name = class_item.get(
+                "name",
+                "Unknown"
+            )
+
+            start_line = class_item.get(
+                "start_line",
+                0
+            )
+
+            end_line = class_item.get(
+                "end_line",
+                0
+            )
+
+            # --------------------------------------------------------
+            # Store the ACTUAL class declaration/code.
+            #
+            # Previously we only stored:
+            #
+            # "Class Flask is defined in ..."
+            #
+            # That caused the LLM to know where the class was,
+            # but not what the class actually inherits from.
+            # --------------------------------------------------------
+
             chunk = {
-                "content": (
-                    f"Class {class_item['name']} "
-                    f"is defined in {file_path} "
-                    f"from line "
-                    f"{class_item['start_line']} "
-                    f"to line "
-                    f"{class_item['end_line']}."
-                ),
+
+                "content": class_code,
 
                 "metadata": {
+
                     "file_path": file_path,
-                    "name": class_item["name"],
+
+                    "name": class_name,
+
                     "type": "class",
-                    "start_line": class_item["start_line"],
-                    "end_line": class_item["end_line"],
+
+                    "start_line": start_line,
+
+                    "end_line": end_line,
+
                 }
             }
 
-            chunks.append(chunk)
+            chunks.append(
+                chunk
+            )
 
-        # --------------------------------
-        # Function / method chunks
-        # --------------------------------
+        # ============================================================
+        # FUNCTION / METHOD CHUNKS
+        # ============================================================
 
         for function in functions:
 
+            function_code = function.get(
+                "code",
+                ""
+            )
+
+            function_name = function.get(
+                "name",
+                "Unknown"
+            )
+
+            function_type = function.get(
+                "type",
+                "function"
+            )
+
+            start_line = function.get(
+                "start_line",
+                0
+            )
+
+            end_line = function.get(
+                "end_line",
+                0
+            )
+
             chunk = {
-                "content": function["code"],
+
+                "content": function_code,
 
                 "metadata": {
+
                     "file_path": file_path,
-                    "name": function["name"],
-                    "type": function["type"],
-                    "start_line": function["start_line"],
-                    "end_line": function["end_line"],
+
+                    "name": function_name,
+
+                    "type": function_type,
+
+                    "start_line": start_line,
+
+                    "end_line": end_line,
+
                 }
             }
 
-            chunks.append(chunk)
+            chunks.append(
+                chunk
+            )
 
         return chunks

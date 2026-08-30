@@ -14,6 +14,10 @@ class PythonCodeParser:
             self.language
         )
 
+    # ============================================================
+    # PARSE FILE
+    # ============================================================
+
     def parse_file(self, file_path: str):
 
         with open(
@@ -29,6 +33,108 @@ class PythonCodeParser:
 
         return tree, source_code
 
+    # ============================================================
+    # GET NODE NAME
+    # ============================================================
+
+    def _get_node_name(
+        self,
+        node,
+        source_code
+    ):
+
+        for child in node.children:
+
+            if child.type == "identifier":
+
+                return source_code[
+                    child.start_byte:
+                    child.end_byte
+                ].decode(
+                    "utf-8",
+                    errors="replace"
+                )
+
+        return "unknown"
+
+    # ============================================================
+    # GET LINE NUMBERS
+    # ============================================================
+
+    def _get_line_numbers(
+        self,
+        node,
+        source_code
+    ):
+
+        start_line = (
+            source_code[
+                :node.start_byte
+            ].count(b"\n") + 1
+        )
+
+        end_line = (
+            source_code[
+                :node.end_byte
+            ].count(b"\n") + 1
+        )
+
+        return start_line, end_line
+
+    # ============================================================
+    # GET CLASS DECLARATION
+    # ============================================================
+
+    def _get_class_declaration(
+        self,
+        node,
+        source_code
+    ):
+
+        # --------------------------------------------------------
+        # Find class body
+        # --------------------------------------------------------
+
+        body_node = None
+
+        for child in node.children:
+
+            if child.type == "block":
+
+                body_node = child
+                break
+
+        # --------------------------------------------------------
+        # If body exists, everything before the body is the
+        # class declaration.
+        # --------------------------------------------------------
+
+        if body_node:
+
+            declaration = source_code[
+                node.start_byte:
+                body_node.start_byte
+            ].decode(
+                "utf-8",
+                errors="replace"
+            ).strip()
+
+        else:
+
+            declaration = source_code[
+                node.start_byte:
+                node.end_byte
+            ].decode(
+                "utf-8",
+                errors="replace"
+            ).strip()
+
+        return declaration
+
+    # ============================================================
+    # EXTRACT FUNCTIONS
+    # ============================================================
+
     def extract_functions(
         self,
         tree,
@@ -37,59 +143,118 @@ class PythonCodeParser:
 
         functions = []
 
-        stack = [tree.root_node]
+        def visit(
+            node,
+            current_class=None
+        ):
 
-        while stack:
+            # ----------------------------------------------------
+            # Track class context
+            # ----------------------------------------------------
 
-            node = stack.pop()
+            if node.type == "class_definition":
 
-            if node.type == "function_definition":
-
-                function_name = None
+                class_name = self._get_node_name(
+                    node,
+                    source_code
+                )
 
                 for child in node.children:
 
-                    if child.type == "identifier":
+                    visit(
+                        child,
+                        class_name
+                    )
 
-                        function_name = source_code[
-                            child.start_byte:
-                            child.end_byte
-                        ].decode("utf-8")
+                return
 
-                        break
+            # ----------------------------------------------------
+            # Function definition
+            # ----------------------------------------------------
+
+            if node.type == "function_definition":
+
+                function_name = self._get_node_name(
+                    node,
+                    source_code
+                )
 
                 function_code = source_code[
                     node.start_byte:
                     node.end_byte
-                ].decode("utf-8")
-
-                start_line = (
-                    source_code[
-                        :node.start_byte
-                    ].count(b"\n") + 1
+                ].decode(
+                    "utf-8",
+                    errors="replace"
                 )
 
-                end_line = (
-                    source_code[
-                        :node.end_byte
-                    ].count(b"\n") + 1
+                start_line, end_line = (
+                    self._get_line_numbers(
+                        node,
+                        source_code
+                    )
                 )
+
+                # ------------------------------------------------
+                # Detect method vs normal function
+                # ------------------------------------------------
+
+                if current_class:
+
+                    function_type = "method"
+
+                else:
+
+                    function_type = "function"
 
                 functions.append({
+
                     "name": function_name,
-                    "type": "function",
+
+                    "type": function_type,
+
+                    "class_name": current_class,
+
                     "start_line": start_line,
+
                     "end_line": end_line,
+
                     "code": function_code
+
                 })
 
-            for child in reversed(
-                node.children
-            ):
+                # ------------------------------------------------
+                # Continue searching nested functions
+                # ------------------------------------------------
 
-                stack.append(child)
+                for child in node.children:
+
+                    visit(
+                        child,
+                        current_class
+                    )
+
+                return
+
+            # ----------------------------------------------------
+            # Normal traversal
+            # ----------------------------------------------------
+
+            for child in node.children:
+
+                visit(
+                    child,
+                    current_class
+                )
+
+        visit(
+            tree.root_node
+        )
 
         return functions
+
+    # ============================================================
+    # EXTRACT CLASSES
+    # ============================================================
 
     def extract_classes(
         self,
@@ -99,56 +264,59 @@ class PythonCodeParser:
 
         classes = []
 
-        stack = [tree.root_node]
-
-        while stack:
-
-            node = stack.pop()
+        def visit(node):
 
             if node.type == "class_definition":
 
-                class_name = None
-
-                for child in node.children:
-
-                    if child.type == "identifier":
-
-                        class_name = source_code[
-                            child.start_byte:
-                            child.end_byte
-                        ].decode("utf-8")
-
-                        break
+                class_name = self._get_node_name(
+                    node,
+                    source_code
+                )
 
                 class_code = source_code[
                     node.start_byte:
                     node.end_byte
-                ].decode("utf-8")
-
-                start_line = (
-                    source_code[
-                        :node.start_byte
-                    ].count(b"\n") + 1
+                ].decode(
+                    "utf-8",
+                    errors="replace"
                 )
 
-                end_line = (
-                    source_code[
-                        :node.end_byte
-                    ].count(b"\n") + 1
+                start_line, end_line = (
+                    self._get_line_numbers(
+                        node,
+                        source_code
+                    )
+                )
+
+                declaration = (
+                    self._get_class_declaration(
+                        node,
+                        source_code
+                    )
                 )
 
                 classes.append({
+
                     "name": class_name,
+
                     "type": "class",
+
                     "start_line": start_line,
+
                     "end_line": end_line,
+
+                    "declaration": declaration,
+
                     "code": class_code
+
                 })
 
-            for child in reversed(
-                node.children
-            ):
+            for child in node.children:
 
-                stack.append(child)
+                visit(child)
+
+        visit(
+            tree.root_node
+        )
 
         return classes

@@ -8,11 +8,40 @@ class CodeEmbeddingModel:
         model_name="sentence-transformers/all-MiniLM-L6-v2"
     ):
 
-        self.model = SentenceTransformer(
-            model_name
-        )
+        self.model_name = model_name
 
-    def embed_text(self, text):
+        self.model = None
+
+    # ============================================================
+    # LOAD MODEL
+    # ============================================================
+
+    def _load_model(self):
+
+        if self.model is None:
+
+            print(
+                "Loading embedding model..."
+            )
+
+            self.model = SentenceTransformer(
+                self.model_name
+            )
+
+            print(
+                "Embedding model loaded."
+            )
+
+    # ============================================================
+    # EMBED SINGLE TEXT
+    # ============================================================
+
+    def embed_text(
+        self,
+        text
+    ):
+
+        self._load_model()
 
         embedding = self.model.encode(
             text,
@@ -21,7 +50,16 @@ class CodeEmbeddingModel:
 
         return embedding.tolist()
 
-    def embed_chunks(self, chunks):
+    # ============================================================
+    # EMBED CHUNKS
+    # ============================================================
+
+    def embed_chunks(
+        self,
+        chunks
+    ):
+
+        self._load_model()
 
         texts = [
             chunk["content"]
